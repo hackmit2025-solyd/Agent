@@ -1,0 +1,138 @@
+{
+  "sample_queries": [
+    
+    {
+      "id": "query_001",
+      "doctor_query": "follow up with all patients from 4 days ago",
+      "parsed_criteria": {
+        "action": "follow_up",
+        "time_filter": "4 days ago",
+        "date_range": {
+          "start_date": "2024-01-09",
+          "end_date": "2024-01-09"
+        },
+        "patient_criteria": {
+          "last_visit_days_ago": 4,
+          "status": "active"
+        }
+      },
+      "expected_patients": [
+        {
+          "patient_id": "PAT001",
+          "name": "John Smith",
+          "last_visit": "2024-01-09",
+          "status": "active",
+          "medical_history": ["Hypertension", "Diabetes Type 2"],
+          "current_medications": ["Metformin", "Lisinopril"],
+          "follow_up_reason": "routine_checkup"
+        },
+        {
+          "patient_id": "PAT002", 
+          "name": "Sarah Johnson",
+          "last_visit": "2024-01-09",
+          "status": "active",
+          "medical_history": ["Asthma", "Allergies"],
+          "current_medications": ["Albuterol", "Loratadine"],
+          "follow_up_reason": "medication_adjustment"
+        }
+      ]
+    },
+    {
+      "id": "query_002",
+      "doctor_query": "check on all diabetic patients who haven't been seen in 2 weeks",
+      "parsed_criteria": {
+        "action": "check_status",
+        "condition_filter": "diabetic",
+        "time_filter": "2 weeks",
+        "date_range": {
+          "start_date": "2024-01-01",
+          "end_date": "2024-01-01"
+        },
+        "patient_criteria": {
+          "last_visit_days_ago": 14,
+          "conditions": ["diabetes", "diabetes_type_2", "diabetes_type_1"],
+          "status": "active"
+        }
+      },
+      "expected_patients": [
+        {
+          "patient_id": "PAT003",
+          "name": "Michael Brown",
+          "last_visit": "2024-01-01",
+          "status": "active",
+          "medical_history": ["Diabetes Type 2", "Hypertension"],
+          "current_medications": ["Metformin 500mg", "Insulin"],
+          "follow_up_reason": "diabetes_management"
+        }
+      ]
+    },
+    {
+      "id": "query_003",
+      "doctor_query": "review all patients with chest pain symptoms from last week",
+      "parsed_criteria": {
+        "action": "review",
+        "symptom_filter": "chest_pain",
+        "time_filter": "last week",
+        "date_range": {
+          "start_date": "2024-01-06",
+          "end_date": "2024-01-12"
+        },
+        "patient_criteria": {
+          "symptoms": ["chest_pain", "chest_discomfort"],
+          "visit_date_range": "last_week",
+          "status": "active"
+        }
+      },
+      "expected_patients": [
+        {
+          "patient_id": "PAT004",
+          "name": "Robert Wilson",
+          "last_visit": "2024-01-08",
+          "status": "active",
+          "medical_history": ["Heart Disease", "High Cholesterol"],
+          "current_medications": ["Atorvastatin", "Aspirin"],
+          "symptoms": ["chest_pain", "shortness_of_breath"],
+          "follow_up_reason": "cardiac_monitoring"
+        }
+      ]
+    },
+    {
+      "id": "query_004",
+      "doctor_query": "get all patients over 65 with medication changes in the past month",
+      "parsed_criteria": {
+        "action": "get_patients",
+        "age_filter": "over_65",
+        "medication_filter": "recent_changes",
+        "time_filter": "past month",
+        "date_range": {
+          "start_date": "2023-12-13",
+          "end_date": "2024-01-13"
+        },
+        "patient_criteria": {
+          "age_min": 65,
+          "medication_changes_days_ago": 30,
+          "status": "active"
+        }
+      },
+      "expected_patients": [
+        {
+          "patient_id": "PAT005",
+          "name": "Eleanor Davis",
+          "age": 72,
+          "last_visit": "2024-01-10",
+          "status": "active",
+          "medical_history": ["Arthritis", "High Blood Pressure", "Osteoporosis"],
+          "current_medications": ["Ibuprofen", "Amlodipine", "Calcium"],
+          "medication_changes": [
+            {
+              "medication": "Ibuprofen",
+              "change_date": "2024-01-05",
+              "change_type": "dosage_increase"
+            }
+          ],
+          "follow_up_reason": "medication_monitoring"
+        }
+      ]
+    }
+  ]
+}

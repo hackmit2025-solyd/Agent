@@ -1,0 +1,16 @@
+# Environment configuration for HackMIT Agent
+# Copy this file to .env and fill in your actual values
+
+# Database Service Configuration
+DATABASE_SERVICE_URL=http://localhost:3000/api/query
+DATABASE_SERVICE_API_KEY=your-api-key-here
+
+# LiveKit Server Configuration
+LIVEKIT_SERVER_URL=http://localhost:7880
+
+# Agent Wallet Configuration (generate using wallet_manager.py)
+WALLET_PRIVATE_KEY=
+WALLET_SEED_PHRASE=
+
+# Optional: Override default ports
+WEBHOOK_PORT=8000

@@ -1,0 +1,14 @@
+# Anthropic Claude API Configuration
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+# Optional: OpenAI API Key (if you want to switch providers)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# LiveKit Server Configuration
+LIVEKIT_SERVER_URL=http://localhost:7880
+
+# Database Configuration
+DATABASE_URL=http://localhost:8080
+
+# Agent Configuration
+LOG_LEVEL=INFO
