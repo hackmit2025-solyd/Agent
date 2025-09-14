@@ -1,5 +1,6 @@
 """
 Agent configuration for the HackMIT Healthcare Voice Processing System.
+Updated for uagents framework.
 """
 import os
 from dotenv import load_dotenv
@@ -7,14 +8,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class AgentConfig:
-    """Configuration class for the Fetch.ai agent."""
+    """Configuration class for the uagents-based healthcare system."""
     
     # Agent identity
     AGENT_NAME = "healthcare_voice_agent"
     AGENT_VERSION = "0.1.0"
     
-    # Network settings
-    FETCH_NETWORK = "testnet"  # Use testnet for development
+    # uAgents settings
+    UAGENTS_SEED = os.getenv("UAGENTS_SEED", None)
+    UAGENTS_ENDPOINT = os.getenv("UAGENTS_ENDPOINT", None)
+    UAGENTS_MAILBOX_KEY = os.getenv("UAGENTS_MAILBOX_KEY", None)
+    
+    # Agentverse settings for online connectivity
+    AGENTVERSE_API_KEY = os.getenv("AGENTVERSE_API_KEY", None)
+    AGENTVERSE_ENDPOINT = os.getenv("AGENTVERSE_ENDPOINT", "https://agentverse.ai")
+    AGENTVERSE_MAILBOX_URL = os.getenv("AGENTVERSE_MAILBOX_URL", None)
+    
+    # Agent addresses (will be generated)
+    MASTER_AGENT_ADDRESS = os.getenv("MASTER_AGENT_ADDRESS", None)
+    HEALTHCARE_AGENT_ADDRESS = os.getenv("HEALTHCARE_AGENT_ADDRESS", None)
     
     # Webhook server settings
     WEBHOOK_HOST = "localhost"
@@ -28,7 +40,7 @@ class AgentConfig:
     # LiveKit server settings
     LIVEKIT_SERVER_URL = os.getenv("LIVEKIT_SERVER_URL", "http://localhost:7880")
     
-    # Agent wallet settings
+    # Legacy wallet settings (for compatibility)
     WALLET_PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY", None)
     WALLET_SEED_PHRASE = os.getenv("WALLET_SEED_PHRASE", None)
     

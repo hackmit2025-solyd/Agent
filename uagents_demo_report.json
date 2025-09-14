@@ -1,0 +1,217 @@
+{
+  "demo_summary": {
+    "total_steps": 11,
+    "successful_steps": 11,
+    "failed_steps": 0,
+    "success_rate": 100.0,
+    "timestamp": "2025-09-13T22:58:41.482746"
+  },
+  "step_results": {
+    "initialization": {
+      "success": 1,
+      "failed": 0
+    },
+    "doctor_query": {
+      "success": 4,
+      "failed": 0
+    },
+    "voice_processing": {
+      "success": 3,
+      "failed": 0
+    },
+    "sub_agent_communication": {
+      "success": 2,
+      "failed": 0
+    },
+    "system_status": {
+      "success": 1,
+      "failed": 0
+    }
+  },
+  "detailed_results": [
+    {
+      "step": "initialization",
+      "status": "success",
+      "master_agent": "agent1q2k97zjz8xyxgsqs356nkujuyl5gynpuxv9sus7vlf5nlzmzlrexyqx8cz5",
+      "healthcare_agent": "agent1qdjlwud95w7wra778mqfteal9nvvcck45nn2tpx0x8ychhf5l9nyudm6tzu",
+      "timestamp": "2025-09-13T22:58:07.419362"
+    },
+    {
+      "step": "doctor_query",
+      "query_number": 1,
+      "query": "Follow up with all diabetic patients from last week",
+      "status": "success",
+      "result": {
+        "action": "follow_up",
+        "filters": [
+          "diabetes"
+        ],
+        "patients_found": 2,
+        "processing_time": "0.5s"
+      },
+      "timestamp": "2025-09-13T22:58:07.420845"
+    },
+    {
+      "step": "doctor_query",
+      "query_number": 2,
+      "query": "Check status of patients with chest pain symptoms",
+      "status": "success",
+      "result": {
+        "action": "check_status",
+        "filters": [
+          "chest_pain"
+        ],
+        "patients_found": 2,
+        "processing_time": "0.5s"
+      },
+      "timestamp": "2025-09-13T22:58:07.420845"
+    },
+    {
+      "step": "doctor_query",
+      "query_number": 3,
+      "query": "Review all patients over 65 with hypertension",
+      "status": "success",
+      "result": {
+        "action": "review",
+        "filters": [
+          "age_65_plus"
+        ],
+        "patients_found": 2,
+        "processing_time": "0.5s"
+      },
+      "timestamp": "2025-09-13T22:58:07.467503"
+    },
+    {
+      "step": "doctor_query",
+      "query_number": 4,
+      "query": "Get all patients who had medication changes in the past month",
+      "status": "success",
+      "result": {
+        "action": "get_patients",
+        "filters": [],
+        "patients_found": 0,
+        "processing_time": "0.5s"
+      },
+      "timestamp": "2025-09-13T22:58:07.508512"
+    },
+    {
+      "step": "voice_processing",
+      "session_number": 1,
+      "session_id": "voice_001",
+      "scenario": "Urgent cardiac symptoms",
+      "status": "success",
+      "result": {
+        "processing_steps": [
+          "transcript_analysis",
+          "patient_identification",
+          "urgent_symptom_detection"
+        ],
+        "recommendations": [
+          {
+            "type": "immediate_attention",
+            "message": "Patient reports chest pain - requires immediate evaluation",
+            "priority": "high"
+          }
+        ],
+        "highest_priority": "high",
+        "processing_time": "0.3s"
+      },
+      "timestamp": "2025-09-13T22:58:07.514508"
+    },
+    {
+      "step": "voice_processing",
+      "session_number": 2,
+      "session_id": "voice_002",
+      "scenario": "Routine follow-up",
+      "status": "success",
+      "result": {
+        "processing_steps": [
+          "transcript_analysis",
+          "patient_identification",
+          "medication_analysis",
+          "positive_outcome_detection"
+        ],
+        "recommendations": [
+          {
+            "type": "medication_review",
+            "message": "Review current medications and potential interactions",
+            "priority": "medium"
+          },
+          {
+            "type": "routine_follow_up",
+            "message": "Patient reports improvement - schedule routine follow-up",
+            "priority": "low"
+          }
+        ],
+        "highest_priority": "medium",
+        "processing_time": "0.3s"
+      },
+      "timestamp": "2025-09-13T22:58:07.515509"
+    },
+    {
+      "step": "voice_processing",
+      "session_number": 3,
+      "session_id": "voice_003",
+      "scenario": "New symptoms reported",
+      "status": "success",
+      "result": {
+        "processing_steps": [
+          "transcript_analysis",
+          "patient_identification"
+        ],
+        "recommendations": [],
+        "highest_priority": "low",
+        "processing_time": "0.3s"
+      },
+      "timestamp": "2025-09-13T22:58:07.517016"
+    },
+    {
+      "step": "sub_agent_communication",
+      "sub_agent_number": 1,
+      "patient_id": "PAT001",
+      "patient_name": "John Smith",
+      "status": "success",
+      "result": {
+        "outcome": "close_loop",
+        "confidence_score": 0.9,
+        "data_obtained": {
+          "patient_well": true,
+          "no_concerns": true,
+          "routine_follow_up_scheduled": true
+        },
+        "communication_quality": "excellent"
+      },
+      "timestamp": "2025-09-13T22:58:23.481126"
+    },
+    {
+      "step": "sub_agent_communication",
+      "sub_agent_number": 2,
+      "patient_id": "PAT002",
+      "patient_name": "Mary Johnson",
+      "status": "success",
+      "result": {
+        "outcome": "escalate_urgent",
+        "confidence_score": 0.85,
+        "data_obtained": {
+          "chest_pain_confirmed": true,
+          "patient_distressed": true,
+          "urgent_care_needed": true
+        },
+        "communication_quality": "good"
+      },
+      "timestamp": "2025-09-13T22:58:41.480301"
+    },
+    {
+      "step": "system_status",
+      "status": "success",
+      "result": {
+        "total_sub_agents": 2,
+        "completed": 0,
+        "flagged_for_review": 0,
+        "failed": 0,
+        "success_rate": 0.0
+      },
+      "timestamp": "2025-09-13T22:58:41.481256"
+    }
+  ]
+}

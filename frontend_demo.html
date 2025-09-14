@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthcare Agent - Live Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .query-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .query-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        .query-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status-section {
+            background: #fff;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .status-item.pending {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .status-item.processing {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .status-item.success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+        
+        .status-item.error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .status-icon {
+            font-size: 20px;
+            margin-right: 15px;
+        }
+        
+        .status-content {
+            flex: 1;
+        }
+        
+        .status-message {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        
+        .status-details {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .agents-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+        }
+        
+        .agent-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .agent-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .agent-id {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .agent-status {
+            background: #28a745;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        
+        .patient-info {
+            color: #6c757d;
+            margin: 5px 0;
+        }
+        
+        .medical-history {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
+        .medical-history h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        
+        .medical-history ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .chat-window {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 400px;
+            height: 500px;
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-title {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .close-chat {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-chat:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .chat-messages {
+            height: 350px;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        
+        .message.agent {
+            background: #e3f2fd;
+            margin-left: 0;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .message.patient {
+            background: #f3e5f5;
+            margin-left: auto;
+            margin-right: 0;
+            border-right: 4px solid #9c27b0;
+        }
+        
+        .message.system {
+            background: #fff3e0;
+            margin: 5px auto;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+        
+        .chat-input button {
+            margin-left: 10px;
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        
+        .chat-input button:hover {
+            background: #2980b9;
+        }
+        
+        .chat-tabs {
+            display: flex;
+            background: #ecf0f1;
+            border-bottom: 1px solid #bdc3c7;
+        }
+        
+        .chat-tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            border-right: 1px solid #bdc3c7;
+            background: #ecf0f1;
+            transition: background 0.3s;
+        }
+        
+        .chat-tab.active {
+            background: white;
+            border-bottom: 2px solid #3498db;
+        }
+        
+        .chat-tab:hover {
+            background: #d5dbdb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Healthcare Agent System</h1>
+            <p>AI-Powered Patient Management with Live Streaming</p>
+        </div>
+        
+        <div class="content">
+            <div class="query-section">
+                <h2>Doctor Query</h2>
+                <input type="text" id="queryInput" class="query-input" 
+                       placeholder="Enter doctor's query (e.g., 'Follow up with all diabetic patients from last week who have been experiencing vision problems')"
+                       value="Follow up with all diabetic patients from last week who have been experiencing vision problems">
+                <button id="submitBtn" class="btn" onclick="submitQuery()">Submit Query</button>
+            </div>
+            
+            <div class="status-section">
+                <h2>Processing Status</h2>
+                <div id="statusContainer">
+                    <div class="status-item pending">
+                        <div class="status-icon">⏳</div>
+                        <div class="status-content">
+                            <div class="status-message">Ready to process</div>
+                            <div class="status-details">Enter a query and click submit to begin</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="agents-section">
+                <h2>Sub-Agents</h2>
+                <div id="agentsContainer">
+                    <p style="color: #6c757d; text-align: center; padding: 20px;">
+                        No agents created yet. Submit a query to see sub-agents in action.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Window -->
+    <div id="chatWindow" class="chat-window">
+        <div class="chat-header">
+            <div class="chat-title" id="chatTitle">Patient Chat</div>
+            <button class="close-chat" onclick="closeChat()">×</button>
+        </div>
+        <div class="chat-tabs" id="chatTabs">
+            <!-- Tabs will be dynamically added here -->
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message system">Select a patient to start chatting</div>
+        </div>
+        <div class="chat-input">
+            <input type="text" id="chatInput" placeholder="Type your message as the patient..." onkeypress="handleChatKeyPress(event)">
+            <button onclick="sendPatientMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let activeAgents = {};
+        let currentChatAgent = null;
+        
+        function submitQuery() {
+            const query = document.getElementById('queryInput').value.trim();
+            if (!query) {
+                alert('Please enter a query');
+                return;
+            }
+            
+            // Disable submit button
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            
+            // Clear previous results
+            clearStatus();
+            clearAgents();
+            
+            // Start streaming
+            startStreaming(query);
+        }
+        
+        function startStreaming(query) {
+            // Close previous connection if exists
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            // Create new EventSource connection
+            const url = `http://localhost:8080/api/healthcare-query?query=${encodeURIComponent(query)}`;
+            eventSource = new EventSource(url);
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateStatus(data);
+                } catch (e) {
+                    console.error('Error parsing event data:', e);
+                }
+            };
+            
+            eventSource.onerror = function(event) {
+                console.error('EventSource failed:', event);
+                addStatusItem('error', '❌', 'Connection Error', 'Failed to connect to server');
+                resetSubmitButton();
+            };
+            
+            eventSource.onopen = function(event) {
+                console.log('EventSource connection opened');
+            };
+        }
+        
+        function updateStatus(data) {
+            const status = data.status;
+            const message = data.message;
+            
+            switch(status) {
+                case 'started':
+                    addStatusItem('processing', '🚀', 'Started', message);
+                    break;
+                    
+                case 'parsing':
+                    addStatusItem('processing', '🧠', 'AI Parsing', message);
+                    break;
+                    
+                case 'parsed':
+                    addStatusItem('success', '✅', 'Query Parsed', message);
+                    if (data.criteria) {
+                        addStatusItem('success', '📋', 'Criteria', `Action: ${data.criteria.action}, Time: ${data.criteria.time_filter}`);
+                    }
+                    break;
+                    
+                case 'database':
+                    addStatusItem('processing', '🗄️', 'Database Query', message);
+                    break;
+                    
+                case 'database_found':
+                    addStatusItem('success', '✅', 'Patients Found', message);
+                    if (data.patients) {
+                        data.patients.forEach(patient => {
+                            addStatusItem('success', '👤', 'Patient', `${patient.name} - ${patient.medical_history.join(', ')}`);
+                        });
+                    }
+                    break;
+                    
+                case 'creating_agents':
+                    addStatusItem('processing', '🤖', 'Creating Agents', message);
+                    break;
+                    
+                case 'agent_created':
+                    addStatusItem('success', '✅', 'Agent Created', message);
+                    if (data.agent_id) {
+                        addAgentCard(data.agent_id, data.message);
+                    }
+                    break;
+                    
+                case 'completed':
+                    addStatusItem('success', '🎉', 'Completed', message);
+                    if (data.agents) {
+                        data.agents.forEach(agent => {
+                            addAgentCard(agent.agent_id, `Created for ${agent.patient_name}`, agent);
+                        });
+                    }
+                    break;
+                    
+                case 'done':
+                    addStatusItem('success', '✨', 'All Done', message);
+                    resetSubmitButton();
+                    if (eventSource) {
+                        eventSource.close();
+                    }
+                    break;
+            }
+        }
+        
+        function addStatusItem(type, icon, title, message) {
+            const container = document.getElementById('statusContainer');
+            const item = document.createElement('div');
+            item.className = `status-item ${type}`;
+            item.innerHTML = `
+                <div class="status-icon">${icon}</div>
+                <div class="status-content">
+                    <div class="status-message">${title}</div>
+                    <div class="status-details">${message}</div>
+                </div>
+            `;
+            container.appendChild(item);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function addAgentCard(agentId, message, agentData = null) {
+            const container = document.getElementById('agentsContainer');
+            
+            // Remove "no agents" message if it exists
+            const noAgentsMsg = container.querySelector('p');
+            if (noAgentsMsg) {
+                noAgentsMsg.remove();
+            }
+            
+            // Store agent data for chat
+            if (agentData) {
+                activeAgents[agentId] = {
+                    ...agentData,
+                    chatHistory: [],
+                    status: 'created'
+                };
+            }
+            
+            const card = document.createElement('div');
+            card.className = 'agent-card';
+            card.innerHTML = `
+                <div class="agent-header">
+                    <div class="agent-id">${agentId}</div>
+                    <div class="agent-status">Created</div>
+                </div>
+                <div class="patient-info">
+                    <strong>Message:</strong> ${message}
+                </div>
+                ${agentData ? `
+                    <div class="patient-info">
+                        <strong>Patient:</strong> ${agentData.patient_name}
+                    </div>
+                    <div class="medical-history">
+                        <h4>Medical History</h4>
+                        <ul>
+                            ${agentData.medical_history.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button class="btn" onclick="openChat('${agentId}')" style="padding: 8px 16px; font-size: 14px;">
+                            💬 Chat with Patient
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+            container.appendChild(card);
+        }
+        
+        function clearStatus() {
+            const container = document.getElementById('statusContainer');
+            container.innerHTML = '';
+        }
+        
+        function clearAgents() {
+            const container = document.getElementById('agentsContainer');
+            container.innerHTML = '<p style="color: #6c757d; text-align: center; padding: 20px;">No agents created yet. Submit a query to see sub-agents in action.</p>';
+        }
+        
+        function resetSubmitButton() {
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Query';
+        }
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            if (eventSource) {
+                eventSource.close();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -429,6 +429,144 @@ Recommendations:
 - Schedule routine follow-up
 - Monitor for any changes in condition"""
 
+    async def generate_conversation_starter(self, patient_data: Dict[str, Any], master_context) -> str:
+        """Generate the initial conversation starter for a patient."""
+        if not self.available:
+            return f"Hello {patient_data['name']}! I'm your healthcare agent calling for a follow-up. How have you been feeling since your last visit?"
+        
+        try:
+            system_prompt = """You are a professional healthcare agent calling a patient for a follow-up. Generate a natural, warm, and professional conversation starter that:
+1. Introduces yourself as their healthcare agent
+2. Explains the purpose of the call (follow-up)
+3. Asks an open-ended question about their wellbeing
+4. Is appropriate for their medical condition
+5. Keeps it conversational and not clinical
+
+Be warm, professional, and make the patient feel comfortable."""
+            
+            patient_info = f"""
+Patient: {patient_data['name']}
+Medical History: {', '.join(patient_data.get('medical_history', []))}
+Current Medications: {', '.join(patient_data.get('current_medications', []))}
+Symptoms: {', '.join(patient_data.get('symptoms', []))}
+Follow-up Action: {master_context.action if hasattr(master_context, 'action') else 'follow_up'}
+"""
+            
+            if self.provider == LLMProvider.ANTHROPIC:
+                response = self.client.messages.create(
+                    model="claude-3-haiku-20240307",
+                    max_tokens=200,
+                    messages=[
+                        {"role": "user", "content": f"{system_prompt}\n\n{patient_info}"}
+                    ]
+                )
+                return response.content[0].text.strip()
+            else:
+                response = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": patient_info}
+                    ],
+                    max_tokens=200
+                )
+                return response.choices[0].message.content.strip()
+                
+        except Exception as e:
+            logger.error(f"Error generating conversation starter: {str(e)}")
+            return f"Hello {patient_data['name']}! I'm your healthcare agent calling for a follow-up. How have you been feeling since your last visit?"
+
+    async def generate_conversation_response(self, patient_message: str, conversation_history: List[Dict], patient_data: Dict[str, Any], master_context, current_round: int) -> Dict[str, Any]:
+        """Generate a response to the patient and decide if conversation should continue."""
+        if not self.available:
+            return {
+                "response": "Thank you for that information. Can you tell me more about how you've been managing your condition?",
+                "should_terminate": current_round >= 5,
+                "termination_reason": "Maximum rounds reached" if current_round >= 5 else ""
+            }
+        
+        try:
+            system_prompt = """You are a professional healthcare agent having a conversation with a patient. Your role is to:
+1. Respond naturally and professionally to the patient's input
+2. Ask relevant follow-up questions about their health
+3. Gather information about their condition, medications, and symptoms
+4. Decide when you have enough information to complete the follow-up
+5. Terminate the conversation naturally when appropriate
+
+IMPORTANT: You must decide when to end the conversation. Consider:
+- Have you gathered sufficient information about their current health status?
+- Have you asked about their medications and adherence?
+- Have you assessed any new symptoms or concerns?
+- Is the patient responsive and cooperative?
+- Have you reached 4-5 meaningful exchanges?
+
+Return your response as JSON with:
+{
+    "response": "Your natural response to the patient",
+    "should_terminate": true/false,
+    "termination_reason": "Brief reason for termination if applicable"
+}
+
+Be conversational, empathetic, and professional. Don't be repetitive."""
+            
+            # Build conversation context
+            conversation_text = ""
+            for msg in conversation_history[-6:]:  # Last 6 messages for context
+                speaker = "Agent" if msg['speaker'] == 'agent' else "Patient"
+                conversation_text += f"{speaker}: {msg['message']}\n"
+            
+            patient_info = f"""
+Patient: {patient_data['name']}
+Medical History: {', '.join(patient_data.get('medical_history', []))}
+Current Medications: {', '.join(patient_data.get('current_medications', []))}
+Current Round: {current_round}
+Follow-up Action: {master_context.action if hasattr(master_context, 'action') else 'follow_up'}
+
+Recent Conversation:
+{conversation_text}
+Patient just said: {patient_message}
+"""
+            
+            if self.provider == LLMProvider.ANTHROPIC:
+                response = self.client.messages.create(
+                    model="claude-3-haiku-20240307",
+                    max_tokens=300,
+                    messages=[
+                        {"role": "user", "content": f"{system_prompt}\n\n{patient_info}"}
+                    ]
+                )
+                content = response.content[0].text.strip()
+            else:
+                response = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": patient_info}
+                    ],
+                    max_tokens=300
+                )
+                content = response.choices[0].message.content.strip()
+            
+            # Parse JSON response
+            try:
+                result = json.loads(content)
+                return result
+            except json.JSONDecodeError:
+                # Fallback if JSON parsing fails
+                return {
+                    "response": content,
+                    "should_terminate": current_round >= 5,
+                    "termination_reason": "Maximum rounds reached" if current_round >= 5 else ""
+                }
+                
+        except Exception as e:
+            logger.error(f"Error generating conversation response: {str(e)}")
+            return {
+                "response": "Thank you for that information. Can you tell me more about how you've been managing your condition?",
+                "should_terminate": current_round >= 5,
+                "termination_reason": "Error occurred" if current_round >= 5 else ""
+            }
+
 
 # Global LLM service instance - Default to Claude
 llm_service = LLMService(provider=LLMProvider.ANTHROPIC)

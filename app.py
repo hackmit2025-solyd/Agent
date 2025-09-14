@@ -2,13 +2,27 @@
 Healthcare Agent Flask Server
 RESTful API for the LLM-powered healthcare agent system.
 """
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import asyncio
 import json
+import time
+import os
+import requests
 from datetime import datetime
+from dotenv import load_dotenv
 from agents.master_agent import MasterAgent, PatientRecord, ParsedCriteria
 from agents.sub_agent import SubAgent, SubAgentManager, FollowUpStatus, DecisionOutcome
 from services.llm_service import llm_service
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Debug: Check if Claude API key is loaded
+claude_secret = os.getenv("CLAUDE_SECRET")
+if claude_secret and claude_secret != "your-claude-api-key-here":
+    print(f"✅ Claude API key loaded: {claude_secret[:10]}...")
+else:
+    print("❌ Claude API key not found in environment")
 
 app = Flask(__name__)
 
@@ -102,6 +116,79 @@ def parse_query():
             }
         })
     
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/doctor-query', methods=['POST'])
+def process_doctor_query():
+    """Complete flow: Doctor Query → Master Agent → Database → Sub-Agents → Communication."""
+    try:
+        data = request.get_json()
+        if not data or 'query' not in data:
+            return jsonify({"error": "query is required"}), 400
+        
+        doctor_query = data['query']
+        
+        # Step 1: Master Agent parses doctor query
+        print(f"🧠 Master Agent parsing: '{doctor_query}'")
+        parsed_criteria = run_async(master_agent.parse_doctor_query(doctor_query))
+        
+        # Step 2: Master Agent queries database server with original query
+        print(f"📊 Querying database with original query: '{doctor_query}'")
+        patient_records = run_async(master_agent.query_database(parsed_criteria, doctor_query))
+        
+        # Step 3: Create sub-agents for each patient
+        print(f"🤖 Creating {len(patient_records)} sub-agents...")
+        created_agents = []
+        
+        for patient_record in patient_records:
+            # Create sub-agent
+            sub_agent_data = {
+                "patient_id": patient_record.patient_id,
+                "context": {
+                    "action": parsed_criteria.action,
+                    "time_filter": parsed_criteria.time_filter,
+                    "condition_filter": parsed_criteria.condition_filter,
+                    "symptom_filter": parsed_criteria.symptom_filter,
+                    "age_filter": parsed_criteria.age_filter,
+                    "medication_filter": parsed_criteria.medication_filter,
+                    "patient_criteria": parsed_criteria.patient_criteria
+                }
+            }
+            
+            # Create sub-agent using existing endpoint logic
+            sub_agent = SubAgent(
+                patient_data=patient_record,
+                master_context=parsed_criteria,
+                sub_agent_id=f"sub_agent_{patient_record.patient_id}_{int(time.time())}"
+            )
+            
+            sub_agent_manager.sub_agents[sub_agent.sub_agent_id] = sub_agent
+            created_agents.append({
+                "agent_id": sub_agent.sub_agent_id,
+                "patient_name": patient_record.name,
+                "patient_id": patient_record.patient_id,
+                "medical_history": patient_record.medical_history
+            })
+        
+        return jsonify({
+            "success": True,
+            "doctor_query": doctor_query,
+            "parsed_criteria": {
+                "action": parsed_criteria.action,
+                "time_filter": parsed_criteria.time_filter,
+                "condition_filter": parsed_criteria.condition_filter,
+                "symptom_filter": parsed_criteria.symptom_filter,
+                "age_filter": parsed_criteria.age_filter,
+                "medication_filter": parsed_criteria.medication_filter,
+                "patient_criteria": parsed_criteria.patient_criteria
+            },
+            "patients_found": len(patient_records),
+            "sub_agents_created": len(created_agents),
+            "sub_agents": created_agents,
+            "next_step": "Use /api/conversation/start to begin patient communications"
+        })
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -362,6 +449,119 @@ def get_sub_agent(agent_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/healthcare-query', methods=['GET'])
+def healthcare_query_get():
+    """
+    GET endpoint for frontend integration with live streaming
+    Query parameter: query (doctor's query)
+    Returns: Live stream of processing state
+    """
+    try:
+        # Get query from URL parameters
+        doctor_query = request.args.get('query', '')
+        if not doctor_query:
+            return jsonify({"error": "Query parameter is required"}), 400
+        
+        print(f"🌐 Frontend Query: '{doctor_query}'")
+        
+        # Create a response generator for streaming
+        def generate_response():
+            yield f"data: {json.dumps({'status': 'started', 'message': 'Processing doctor query...'})}\n\n"
+            
+            # Step 1: Parse doctor query
+            yield f"data: {json.dumps({'status': 'parsing', 'message': 'Parsing doctor query with AI...'})}\n\n"
+            parsed_criteria = asyncio.run(master_agent.parse_doctor_query(doctor_query))
+            yield f"data: {json.dumps({'status': 'parsed', 'message': f'Query parsed: {parsed_criteria.action}', 'criteria': parsed_criteria.__dict__})}\n\n"
+            
+            # Step 2: Query database
+            yield f"data: {json.dumps({'status': 'database', 'message': 'Querying database for patients...'})}\n\n"
+            patients = asyncio.run(master_agent.query_database(parsed_criteria, original_query=doctor_query))
+            yield f"data: {json.dumps({'status': 'database_found', 'message': f'Found {len(patients)} patients', 'patients': [p.__dict__ for p in patients]})}\n\n"
+            
+            # Step 3: Create sub-agents and start conversations
+            yield f"data: {json.dumps({'status': 'creating_agents', 'message': 'Creating sub-agents for each patient...'})}\n\n"
+            sub_agents_created = []
+            
+            for i, patient in enumerate(patients):
+                sub_agent = SubAgent(
+                    patient_data=patient,
+                    master_context=parsed_criteria,
+                    sub_agent_id=f"sub_agent_{patient.patient_id}_{int(time.time())}"
+                )
+                sub_agent_manager.sub_agents[sub_agent.sub_agent_id] = sub_agent
+                sub_agents_created.append({
+                    'agent_id': sub_agent.sub_agent_id,
+                    'patient_name': patient.name,
+                    'medical_history': patient.medical_history,
+                    'status': 'created'
+                })
+                yield f"data: {json.dumps({'status': 'agent_created', 'message': f'Created agent for {patient.name}', 'agent_id': sub_agent.sub_agent_id})}\n\n"
+                
+                # Start conversation automatically
+                yield f"data: {json.dumps({'status': 'starting_chat', 'message': f'Starting conversation with {patient.name}...', 'agent_id': sub_agent.sub_agent_id})}\n\n"
+                
+                try:
+                    # Get initial agent message
+                    response = requests.post(f"http://localhost:8080/api/conversation/start", 
+                                           json={"agent_id": sub_agent.sub_agent_id})
+                    if response.status_code == 200:
+                        data = response.json()
+                        agent_message = data.get('agent_message', 'Hello!')
+                        yield f"data: {json.dumps({'status': 'agent_message', 'message': agent_message, 'agent_id': sub_agent.sub_agent_id, 'patient_name': patient.name})}\n\n"
+                        
+                        # Simulate patient responses for demo
+                        patient_responses = [
+                            "Hi, I'm doing okay. I've been having some issues with my vision lately.",
+                            "Yes, I'm still taking my medications as prescribed.",
+                            "The vision problems seem to be getting worse, especially at night.",
+                            "I'm worried about my diabetes control. My blood sugar has been high."
+                        ]
+                        
+                        for round_num, patient_msg in enumerate(patient_responses, 1):
+                            yield f"data: {json.dumps({'status': 'patient_message', 'message': patient_msg, 'agent_id': sub_agent.sub_agent_id, 'round': round_num})}\n\n"
+                            
+                            # Get agent response
+                            response = requests.post(f"http://localhost:8080/api/conversation/respond",
+                                                   json={
+                                                       "agent_id": sub_agent.sub_agent_id,
+                                                       "patient_message": patient_msg
+                                                   })
+                            
+                            if response.status_code == 200:
+                                data = response.json()
+                                agent_response = data.get('agent_message', 'I understand.')
+                                should_terminate = data.get('should_terminate', False)
+                                termination_reason = data.get('termination_reason', '')
+                                
+                                yield f"data: {json.dumps({'status': 'agent_response', 'message': agent_response, 'agent_id': sub_agent.sub_agent_id, 'round': round_num})}\n\n"
+                                
+                                if should_terminate:
+                                    yield f"data: {json.dumps({'status': 'conversation_ended', 'message': f'Conversation ended: {termination_reason}', 'agent_id': sub_agent.sub_agent_id})}\n\n"
+                                    break
+                            else:
+                                yield f"data: {json.dumps({'status': 'error', 'message': f'Error getting agent response: {response.status_code}', 'agent_id': sub_agent.sub_agent_id})}\n\n"
+                                break
+                            
+                            # Small delay between messages
+                            time.sleep(1)
+                    else:
+                        yield f"data: {json.dumps({'status': 'error', 'message': f'Error starting conversation: {response.status_code}', 'agent_id': sub_agent.sub_agent_id})}\n\n"
+                        
+                except Exception as e:
+                    yield f"data: {json.dumps({'status': 'error', 'message': f'Error in conversation: {str(e)}', 'agent_id': sub_agent.sub_agent_id})}\n\n"
+            
+            # Step 4: Final result
+            yield f"data: {json.dumps({'status': 'completed', 'message': 'All sub-agents created successfully', 'total_agents': len(sub_agents_created), 'agents': sub_agents_created})}\n\n"
+            
+            # Final completion
+            yield f"data: {json.dumps({'status': 'done', 'message': 'Processing complete'})}\n\n"
+        
+        return Response(generate_response(), mimetype='text/event-stream')
+        
+    except Exception as e:
+        print(f"❌ Error in healthcare query: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/system-status', methods=['GET'])
 def get_system_status():
     """Get system status."""
@@ -440,8 +640,268 @@ def run_demo():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/conversation/start', methods=['POST'])
+def start_conversation():
+    """Start an interactive conversation with a sub-agent."""
+    try:
+        data = request.get_json()
+        if not data or 'agent_id' not in data:
+            return jsonify({"error": "agent_id is required"}), 400
+        
+        agent_id = data['agent_id']
+        
+        # Find sub-agent
+        sub_agent = None
+        for agent in sub_agent_manager.sub_agents.values():
+            if agent.sub_agent_id == agent_id:
+                sub_agent = agent
+                break
+        
+        if not sub_agent:
+            return jsonify({"error": "Sub-agent not found"}), 404
+        
+        # Initialize conversation state
+        if not hasattr(sub_agent, 'conversation_state'):
+            sub_agent.conversation_state = {
+                "rounds": 0,
+                "max_rounds": 5,
+                "history": [],
+                "terminated": False
+            }
+        
+        # Reset conversation if starting fresh
+        sub_agent.conversation_state["rounds"] = 0
+        sub_agent.conversation_state["history"] = []
+        sub_agent.conversation_state["terminated"] = False
+        
+        # Generate initial agent message using Claude
+        patient_data = {
+            "name": sub_agent.patient_data.name,
+            "medical_history": sub_agent.patient_data.medical_history,
+            "current_medications": sub_agent.patient_data.current_medications,
+            "symptoms": sub_agent.patient_data.symptoms or []
+        }
+        
+        # Use Claude to generate the initial conversation starter
+        initial_message = run_async(llm_service.generate_conversation_starter(patient_data, sub_agent.master_context))
+        
+        # Add to conversation history
+        sub_agent.conversation_state["history"].append({
+            "speaker": "agent",
+            "message": initial_message,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        return jsonify({
+            "success": True,
+            "agent_message": initial_message,
+            "conversation_id": agent_id,
+            "max_rounds": sub_agent.conversation_state["max_rounds"]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/conversation/respond', methods=['POST'])
+def respond_to_conversation():
+    """Respond to a conversation with the sub-agent."""
+    try:
+        data = request.get_json()
+        if not data or 'agent_id' not in data or 'patient_message' not in data:
+            return jsonify({"error": "agent_id and patient_message are required"}), 400
+        
+        agent_id = data['agent_id']
+        patient_message = data['patient_message']
+        
+        # Find sub-agent
+        sub_agent = None
+        for agent in sub_agent_manager.sub_agents.values():
+            if agent.sub_agent_id == agent_id:
+                sub_agent = agent
+                break
+        
+        if not sub_agent:
+            return jsonify({"error": "Sub-agent not found"}), 404
+        
+        if not hasattr(sub_agent, 'conversation_state'):
+            return jsonify({"error": "No active conversation. Start a conversation first."}), 400
+        
+        if sub_agent.conversation_state["terminated"]:
+            return jsonify({"error": "Conversation has been terminated."}), 400
+        
+        # Add patient message to history
+        sub_agent.conversation_state["history"].append({
+            "speaker": "patient",
+            "message": patient_message,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        sub_agent.conversation_state["rounds"] += 1
+        
+        # Use Claude to generate response and decide if conversation should continue
+        patient_data = {
+            "name": sub_agent.patient_data.name,
+            "medical_history": sub_agent.patient_data.medical_history,
+            "current_medications": sub_agent.patient_data.current_medications,
+            "symptoms": sub_agent.patient_data.symptoms or []
+        }
+        
+        claude_response = run_async(llm_service.generate_conversation_response(
+            patient_message, 
+            sub_agent.conversation_state["history"], 
+            patient_data, 
+            sub_agent.master_context,
+            sub_agent.conversation_state["rounds"]
+        ))
+        
+        agent_response = claude_response.get("response", "Thank you for that information.")
+        should_terminate = claude_response.get("should_terminate", False)
+        termination_reason = claude_response.get("termination_reason", "")
+        
+        # Check if Claude wants to terminate the conversation
+        if should_terminate or sub_agent.conversation_state["rounds"] >= sub_agent.conversation_state["max_rounds"]:
+            # Terminate conversation
+            sub_agent.conversation_state["terminated"] = True
+            
+            if should_terminate and termination_reason:
+                agent_response = f"{agent_response} {termination_reason}"
+            else:
+                agent_response = "Thank you for your time today. I have enough information to complete your follow-up. Let me process this and get back to you with next steps."
+            
+            sub_agent.conversation_state["history"].append({
+                "speaker": "agent",
+                "message": agent_response,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            # Process the complete conversation
+            conversation_result = process_complete_conversation(sub_agent)
+            
+            return jsonify({
+                "success": True,
+                "agent_message": agent_response,
+                "conversation_terminated": True,
+                "conversation_result": conversation_result,
+                "termination_reason": termination_reason
+            })
+        
+        # Add agent response to history
+        sub_agent.conversation_state["history"].append({
+            "speaker": "agent",
+            "message": agent_response,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        return jsonify({
+            "success": True,
+            "agent_message": agent_response,
+            "conversation_round": sub_agent.conversation_state["rounds"],
+            "max_rounds": sub_agent.conversation_state["max_rounds"],
+            "conversation_terminated": False
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def generate_agent_response(patient_message, conversation_round):
+    """Generate intelligent agent response based on patient input and conversation progress."""
+    patient_msg_lower = patient_message.lower()
+    
+    # Check for termination signals
+    if "nope" in patient_msg_lower or "nothing" in patient_msg_lower or "no" in patient_msg_lower:
+        if conversation_round >= 3:
+            return "I understand. Based on our conversation, it sounds like you're managing well. Let me wrap up this follow-up call."
+        else:
+            return "That's good to know. Any other concerns or symptoms you'd like to discuss?"
+    
+    # Context-aware responses
+    if "headache" in patient_msg_lower or "head" in patient_msg_lower:
+        if "not too bad" in patient_msg_lower or "mild" in patient_msg_lower:
+            return "I understand the headaches are mild. Are you taking any pain medication for them? Any other symptoms I should know about?"
+        else:
+            return "I understand you're experiencing headaches. Can you tell me more about the frequency and intensity? Are they new or have you had them before?"
+    elif "good" in patient_msg_lower or "fine" in patient_msg_lower or "well" in patient_msg_lower:
+        return "That's great to hear! Are you taking your medications as prescribed? Any side effects to report?"
+    elif "help" in patient_msg_lower:
+        return "I'm here to help! What specific concerns do you have about your health? Please share any symptoms or issues you're experiencing."
+    elif "pain" in patient_msg_lower or "hurt" in patient_msg_lower:
+        return "I'm sorry to hear you're in pain. Can you describe the pain - where is it located and what does it feel like?"
+    elif "medication" in patient_msg_lower or "medicine" in patient_msg_lower:
+        return "Let's talk about your medications. Are you taking them as prescribed? Any difficulties or concerns with your current medication regimen?"
+    else:
+        return "Thank you for sharing that. Can you tell me more about how you've been managing your condition? Any new symptoms or changes you've noticed?"
+
+def process_complete_conversation(sub_agent):
+    """Process a complete conversation and make a decision."""
+    try:
+        # Analyze conversation to create realistic communication data
+        patient_messages = [msg['message'].lower() for msg in sub_agent.conversation_state["history"] if msg['speaker'] == 'patient']
+        all_text = ' '.join(patient_messages)
+        
+        # Determine data quality based on conversation
+        has_symptoms = any(word in all_text for word in ['headache', 'pain', 'hurt', 'symptom', 'problem'])
+        has_medication_info = any(word in all_text for word in ['medication', 'medicine', 'pill', 'drug', 'taking'])
+        patient_responsive = len(patient_messages) > 0
+        conversation_complete = sub_agent.conversation_state["rounds"] >= 3
+        
+        # Create communication data from conversation
+        communication_data = {
+            "session_id": f"conversation_{sub_agent.sub_agent_id}",
+            "duration": len(sub_agent.conversation_state["history"]) * 30.0,
+            "confidence_score": 0.85 if conversation_complete else 0.60,
+            "conversation_quality": "excellent" if conversation_complete else "good",
+            "data_obtained": {
+                "patient_responsiveness": patient_responsive,
+                "symptom_information": has_symptoms,
+                "medication_adherence": has_medication_info,
+                "overall_wellbeing": "discussed" if conversation_complete else "partial"
+            },
+            "missing_data": [] if conversation_complete else ["detailed_symptom_description", "medication_adherence"],
+            "transcript": "\n".join([f"{msg['speaker']}: {msg['message']}" for msg in sub_agent.conversation_state["history"]])
+        }
+        
+        # Let Claude analyze the communication
+        patient_data = {
+            "name": sub_agent.patient_data.name,
+            "medical_history": sub_agent.patient_data.medical_history,
+            "current_medications": sub_agent.patient_data.current_medications,
+            "symptoms": sub_agent.patient_data.symptoms or []
+        }
+        
+        claude_analysis = run_async(llm_service.analyze_communication_outcome(communication_data, patient_data))
+        
+        # Convert Claude's analysis to our decision outcome
+        outcome_str = claude_analysis.get("outcome", "close_loop").lower()
+        decision_outcome = DecisionOutcome(outcome_str) if outcome_str in [o.value for o in DecisionOutcome] else DecisionOutcome.CLOSE_LOOP
+        
+        # Create communication result
+        communication_result = {
+            "agent_id": sub_agent.sub_agent_id,
+            "patient_name": sub_agent.patient_data.name,
+            "outcome": decision_outcome.value,
+            "confidence": claude_analysis.get("confidence", 0.8),
+            "reasoning": claude_analysis.get("reasoning", "Communication processed successfully"),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Update sub-agent status
+        sub_agent.status = FollowUpStatus.COMPLETED if decision_outcome == DecisionOutcome.CLOSE_LOOP else FollowUpStatus.FLAGGED_FOR_REVIEW
+        sub_agent.communication_results.append(communication_result)
+        
+        return communication_result
+        
+    except Exception as e:
+        return {"error": str(e)}
+
 if __name__ == '__main__':
+    # Get port from environment (Railway sets this)
+    port = int(os.getenv('PORT', 8080))
+    host = os.getenv('HOST', '0.0.0.0')
+    debug = os.getenv('DEBUG', 'False').lower() == 'true'
+    
     print("🚀 Starting Healthcare Agent Flask Server...")
-    print("📡 API Documentation available at: http://localhost:8080/")
+    print(f"📡 API Documentation available at: http://{host}:{port}/")
     print("🔧 Endpoints ready for testing!")
-    app.run(debug=True, host='127.0.0.1', port=8080)
+    print(f"🌍 Environment: {'Development' if debug else 'Production'}")
+    
+    app.run(debug=debug, host=host, port=port)

@@ -1,94 +1,138 @@
-# 🤖 Claude Integration Setup Guide
+# 🤖 Claude API Setup Guide
 
-## ✅ System Status
-- **Claude-3 Haiku Model**: Configured (cheapest option)
-- **Decision Making**: Claude handles all termination and flagging decisions
-- **Agent Output**: Claude generates all communication text
-- **System Ready**: Yes! (just needs your API key)
+## Current Status
+✅ **System is working with mock data and mock responses**  
+❌ **Claude API key not set - using fallback responses**
 
-## 🔑 What You Need to Do
+## Quick Setup (5 minutes)
 
-### 1. Get Your Claude API Key
-1. Go to: https://console.anthropic.com/
+### 1. Get Claude API Key
+1. Visit: https://console.anthropic.com/
 2. Sign up or log in
-3. Navigate to "API Keys"
+3. Go to "API Keys" section
 4. Create a new API key
 5. Copy the key (starts with `sk-ant-...`)
 
-### 2. Set Your API Key
-Choose one method:
+### 2. Set Environment Variable
 
-**Option A: Environment Variable (Recommended)**
-```bash
-# Windows
-set ANTHROPIC_API_KEY=your_key_here
-
-# Linux/Mac
-export ANTHROPIC_API_KEY=your_key_here
+**Windows (PowerShell):**
+```powershell
+$env:CLAUDE_SECRET="your-actual-api-key-here"
 ```
 
-**Option B: .env File**
-1. Create a `.env` file in the project root
-2. Add: `ANTHROPIC_API_KEY=your_key_here`
-
-### 3. Test Your Setup
-```bash
-python test_claude_decisions.py
+**Windows (Command Prompt):**
+```cmd
+set CLAUDE_SECRET=your-actual-api-key-here
 ```
 
-## 🎯 What Claude Does Now
+**Linux/Mac:**
+```bash
+export CLAUDE_SECRET=your-actual-api-key-here
+```
 
-### ✅ **Intelligent Query Parsing**
-Claude understands complex medical queries like:
-- "Follow up with all diabetic patients from last week who have been experiencing vision problems"
-- "URGENT: Find patients with heart disease who had chest pain in the past 3 days"
+### 3. Restart Flask Server
+```bash
+python app.py
+```
 
-### ✅ **Realistic Communication Generation**
-Claude generates natural patient conversations based on:
-- Medical history and conditions
-- Current medications and symptoms
-- Communication goals and context
+### 4. Test Real Claude
+```bash
+python test_real_claude.py
+```
 
-### ✅ **Smart Decision Making**
-Claude makes all critical decisions:
-- **CLOSE_LOOP**: Communication successful, patient stable
-- **FLAG_FOR_DOCTOR_REVIEW**: Needs human medical review
-- **ESCALATE_URGENT**: Immediate attention required
-- **RETRY_COMMUNICATION**: Technical issues, needs retry
+## What You'll Get with Real Claude
 
-### ✅ **Medical Reasoning**
-Claude provides detailed reasoning for each decision:
-- Patient safety assessment
-- Urgent condition detection
-- Data completeness analysis
-- Medication safety evaluation
+### Before (Mock Responses):
+```
+🤖 Agent: Hello John Smith! I'm your healthcare agent calling for a follow-up. How have you been feeling since your last visit?
+🤖 Agent: Thank you for that information. Can you tell me more about how you've been managing your condition?
+🤖 Agent: Thank you for that information. Can you tell me more about how you've been managing your condition?
+```
 
-## 💰 Cost Optimization
+### After (Real Claude):
+```
+🤖 Agent: Hello John! I'm calling from your healthcare team to check in on your diabetes management. I see you've been experiencing some vision concerns - how have those been affecting your daily activities?
+🤖 Agent: I understand the vision issues are concerning. Are you still taking your Metformin as prescribed, and have you noticed any changes in your blood sugar levels recently?
+🤖 Agent: Based on what you've shared, I think it would be best to schedule you for an eye exam within the next week. I'll also flag this for Dr. Smith to review your medication regimen. Does that sound good to you?
+```
 
-- **Model**: Claude-3 Haiku (cheapest option)
-- **Usage**: Only when making decisions
-- **Efficiency**: Smart prompts minimize token usage
-- **Fallback**: Mock responses when API unavailable
+## System Components Status
 
-## 🚀 Ready to Use
+### ✅ Working Components:
+- **Flask API Server** (localhost:8080)
+- **Mock Database Service** (localhost:3000)
+- **Complete Healthcare Flow**
+- **Sub-Agent Management**
+- **Conversation API**
 
-Once you set your API key, the system will:
-1. Use Claude for all query parsing
-2. Generate realistic patient conversations
-3. Make intelligent healthcare decisions
-4. Provide detailed medical reasoning
-5. Handle complex medical scenarios
+### 🔧 Needs Claude API Key:
+- **Intelligent Query Parsing**
+- **Smart Conversation Starters**
+- **Context-Aware Responses**
+- **Intelligent Termination Logic**
+- **Medical Decision Making**
 
-## 🧪 Test Scenarios
+## API Endpoints
 
-The system includes test scenarios for:
-- Routine diabetic patients
-- Urgent cardiac cases
-- Complex multi-condition patients
-- Medication safety concerns
+### Doctor Query Flow:
+```bash
+POST http://localhost:8080/api/doctor-query
+{
+  "doctor_query": "Follow up with all diabetic patients from last week who have been experiencing vision problems"
+}
+```
 
-Run `python test_claude_decisions.py` to see Claude in action!
+### Conversation Flow:
+```bash
+# Start conversation
+POST http://localhost:8080/api/conversation/start
+{
+  "agent_id": "sub_agent_PAT001_1234567890"
+}
+
+# Respond to patient
+POST http://localhost:8080/api/conversation/respond
+{
+  "agent_id": "sub_agent_PAT001_1234567890",
+  "patient_message": "I've been having vision problems lately"
+}
+```
+
+## Troubleshooting
+
+### Issue: "401 Unauthorized" errors
+**Solution:** Your Claude API key is invalid or not set
+```bash
+# Check if key is set
+echo $env:CLAUDE_SECRET  # Windows
+echo $CLAUDE_SECRET      # Linux/Mac
+```
+
+### Issue: "Claude Available: False"
+**Solution:** Restart Flask server after setting environment variable
+```bash
+# Stop current server (Ctrl+C)
+python app.py
+```
+
+### Issue: Still getting mock responses
+**Solution:** Check API key format - should start with `sk-ant-`
+```bash
+# Test with real key
+python test_real_claude.py
+```
+
+## Cost Information
+- **Claude 3 Haiku**: ~$0.25 per 1M input tokens, ~$1.25 per 1M output tokens
+- **Typical conversation**: ~$0.001-0.01 per patient
+- **Very cost-effective** for healthcare applications
+
+## Next Steps
+1. Set your Claude API key
+2. Restart the Flask server
+3. Run `python test_real_claude.py`
+4. See intelligent, context-aware conversations!
 
 ---
 
-**🎉 Your LLM-powered healthcare agent system is ready!**
+**🎉 Once you set your Claude API key, you'll have a fully intelligent healthcare agent system!**

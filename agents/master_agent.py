@@ -402,20 +402,26 @@ class MasterAgent:
         
         return criteria
     
-    async def query_database(self, criteria: ParsedCriteria) -> List[PatientRecord]:
+    async def query_database(self, criteria: ParsedCriteria, original_query: str = None) -> List[PatientRecord]:
         """
         Query database service using parsed criteria.
         
         Args:
             criteria: Parsed criteria from doctor query
+            original_query: Original doctor query (optional)
             
         Returns:
             List of PatientRecord objects
         """
         logger.info(f"Querying database with criteria: {criteria.action}")
         
-        # Build database query from criteria
-        query_text = self._build_database_query(criteria)
+        # Use original query if available, otherwise build from criteria
+        if original_query:
+            query_text = original_query
+            logger.info(f"Using original doctor query: {query_text}")
+        else:
+            query_text = self._build_database_query(criteria)
+            logger.info(f"Built query from criteria: {query_text}")
         
         try:
             # Send query to database service
@@ -438,15 +444,17 @@ class MasterAgent:
             return self._get_sample_patients(criteria)
     
     def _build_database_query(self, criteria: ParsedCriteria) -> str:
-        """Build database query text from criteria."""
+        """Build database query text from criteria - just pass the original doctor query."""
+        # The database server does all the filtering
+        # We just pass the parsed criteria back as a natural language query
         query_parts = []
         
         if criteria.action == "follow_up":
-            query_parts.append("Find patients for follow-up")
+            query_parts.append("Follow up with patients")
         elif criteria.action == "check_status":
-            query_parts.append("Find patients for status check")
+            query_parts.append("Check status of patients")
         elif criteria.action == "review":
-            query_parts.append("Find patients for review")
+            query_parts.append("Review patients")
         else:
             query_parts.append("Find patients")
         

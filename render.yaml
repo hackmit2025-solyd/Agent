@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: healthcare-agent
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /api/system-status
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    plan: free
